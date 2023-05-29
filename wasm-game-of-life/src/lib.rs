@@ -11,12 +11,13 @@ use fixedbitset::FixedBitSet;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[wasm_bindgen]
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Cell {
-    Dead = 0,
-    Alive = 1,
+extern crate web_sys;
+
+// A macro to provide `println!(..)`-style syntax for `console.log` logging.
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
 }
 
 #[wasm_bindgen]
@@ -47,6 +48,20 @@ impl Universe {
         }
         count
     }
+
+    /// Get the dead and alive values of the entire universe.
+    pub fn get_cells(&self) -> &FixedBitSet {
+        &self.cells
+    }
+
+    /// Set cells to be alive in a universe by passing the row and column
+    /// of each cell as an array.
+    pub fn set_cells(&mut self, cells: &[(u32, u32)]) {
+        for (row, col) in cells.iter().cloned() {
+            let idx = self.get_index(row, col);
+            self.cells.set(idx, true);
+        }
+    }
 }
 
 #[wasm_bindgen]
@@ -59,6 +74,14 @@ impl Universe {
                 let idx = self.get_index(row, col);
                 let cell = self.cells[idx];
                 let live_neighbors = self.live_neighbor_count(row, col);
+
+                // log!(
+                //     "cell[{}, {}] is initially {:?} and has {} live neighbors",
+                //     row,
+                //     col,
+                //     cell,
+                //     live_neighbors
+                // );
 
                 next.set(
                     idx,
@@ -73,10 +96,13 @@ impl Universe {
             }
         }
 
+        log!("    it becomes {:?}", next);
         self.cells = next;
     }
 
     pub fn new(width: u32, height: u32) -> Universe {
+        utils::set_panic_hook();
+
         let size = (width * height) as usize;
         let mut cells = FixedBitSet::with_capacity(size);
         for i in 0..size {
@@ -96,6 +122,26 @@ impl Universe {
 
     pub fn height(&self) -> u32 {
         self.height
+    }
+
+    /// Set the width of the universe.
+    ///
+    /// Resets all cells to the dead state.
+    pub fn set_width(&mut self, width: u32) {
+        self.width = width;
+        let size = (width * self.height) as usize;
+        self.cells = FixedBitSet::with_capacity(size);
+        self.cells.set_range(0..size, false);
+    }
+
+    /// Set the height of the universe.
+    ///
+    /// Resets all cells to the dead state.
+    pub fn set_height(&mut self, height: u32) {
+        self.height = height;
+        let size = (self.width * height) as usize;
+        self.cells = FixedBitSet::with_capacity(size);
+        self.cells.set_range(0..size, false);
     }
 
     pub fn cells(&self) -> *const u32 {
