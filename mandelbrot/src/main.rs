@@ -35,7 +35,6 @@ fn write_image(filename: &str, pixels: &[u8], bounds: (usize, usize)) -> Result<
 
     let encoder = PngEncoder::new(output);
     encoder.write_image(pixels, bounds.0 as u32, bounds.1 as u32, ColorType::L8)?;
-    // Cannot use `?` operator. Why?
     Ok(())
 }
 
